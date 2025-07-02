@@ -1,9 +1,12 @@
 use tracing::debug;
 
 use reqwest::header::CONTENT_TYPE;
-use reqwest::{Client, Method};
+use reqwest::{Client, Method,Body};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::path::Path;
+use tokio::fs::File;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::core::ClientCore;
 use crate::rep::Session;
@@ -196,20 +199,22 @@ impl Jira {
             .and_then(|n| n.to_str())
             .unwrap_or("myfile.txt");
 
-        let file = File::open(file_path)?;
-        let part = reqwest::multipart::Part::reader(file)
+        let file = File::open(file_path).await?;
+        let stream = FramedRead::new(file, BytesCodec::new());
+        let body = Body::wrap_stream(stream);
+        let part = reqwest::multipart::Part::stream(body)
             .file_name(file_name.to_string())
             .mime_str("application-type");
 
         let form = reqwest::multipart::Form::new().part("file", part?);
 
-        let mut res = req
+        let res = req
             .multipart(form)
             .send().await?;
+        let status = res.status();
         let body = res.text().await?;
-        debug!("status {:?} body '{:?}'", res.status(), body);
 
-        self.core.process_response(res.status(), &body)
+        self.core.process_response(status, &body)
 
     }
 
