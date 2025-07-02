@@ -173,6 +173,46 @@ impl Jira {
             .await
     }
 
+    pub async fn upload<D>(
+        &self,
+        api_name: &str,
+        endpoint: &str,
+        file_path: &Path) -> Result<D>
+    where
+        D: DeserializeOwned,
+    {
+        let url = self.core.build_url(api_name, endpoint)?;
+        debug!("url -> {:?}", url);
+
+        let mut req = self
+            .client
+            .request(Method::POST, url)
+            .header(CONTENT_TYPE, "application/json");
+
+        req = self.core.apply_credentials_async(req);
+
+         let file_name = file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("myfile.txt");
+
+        let file = File::open(file_path)?;
+        let part = reqwest::multipart::Part::reader(file)
+            .file_name(file_name.to_string())
+            .mime_str("application-type");
+
+        let form = reqwest::multipart::Form::new().part("file", part?);
+
+        let mut res = req
+            .multipart(form)
+            .send().await?;
+        let body = res.text().await?;
+        debug!("status {:?} body '{:?}'", res.status(), body);
+
+        self.core.process_response(res.status(), &body)
+
+    }
+
     #[tracing::instrument]
     async fn request<D>(
         &self,
