@@ -1,6 +1,6 @@
 //! Interfaces for accessing and managing attachments
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::Path};
 
 // Ours
 use crate::{Jira, Result};
@@ -70,5 +70,13 @@ impl Attachments {
             .delete("api", &format!("/attachment/{}", id.into()))?;
 
         Ok(())
+    }
+
+    pub fn create<I>(&self, issue_id: I, filepath: &Path) -> Result<AttachmentResponse> 
+    where
+        I: Into<String>,
+    {
+         let resp: AttachmentResponse = self.jira.upload("api", &format!("/issue/{}/attachments", issue_id.into()), filepath)?;
+         Ok(resp)
     }
 }

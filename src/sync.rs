@@ -5,7 +5,8 @@ use reqwest::header::CONTENT_TYPE;
 use reqwest::{blocking::Client, Method};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-
+use std::path::Path;
+use std::fs::File;
 use crate::attachments::Attachments;
 use crate::boards::Boards;
 use crate::components::Components;
@@ -307,6 +308,48 @@ impl Jira {
         debug!("Json PUT request sent");
         self.request::<D>(Method::PUT, api_name, endpoint, Some(data))
     }
+
+    pub fn upload<D>(
+        &self,
+        api_name: &str,
+        endpoint: &str,
+        file_path: &Path) -> Result<D>
+    where
+        D: DeserializeOwned,
+    {
+        let url = self.core.build_url(api_name, endpoint)?;
+        debug!("url -> {:?}", url);
+
+        let mut req = self
+            .client
+            .request(Method::POST, url)
+            .header(CONTENT_TYPE, "application/json");
+
+        req = self.core.apply_credentials_sync(req);
+
+         let file_name = file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("myfile.txt");
+
+        let file = File::open(file_path)?;
+        let part = reqwest::blocking::multipart::Part::reader(file)
+            .file_name(file_name.to_string())
+            .mime_str("application-type");
+
+        let form = reqwest::blocking::multipart::Form::new().part("file", part?);
+
+        let mut res = req
+            .multipart(form)
+            .send()?;
+        let mut body = String::new();
+        res.read_to_string(&mut body)?;
+        debug!("status {:?} body '{:?}'", res.status(), body);
+
+        self.core.process_response(res.status(), &body)
+
+    }
+
 
     #[tracing::instrument]
     fn request<D>(
