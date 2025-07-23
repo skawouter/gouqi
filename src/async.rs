@@ -1,6 +1,6 @@
 use tracing::debug;
 
-use reqwest::header::CONTENT_TYPE;
+use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use reqwest::{Client, Method,Body};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -180,17 +180,19 @@ impl Jira {
         &self,
         api_name: &str,
         endpoint: &str,
-        file_path: &Path) -> Result<D>
+        file_path: &Path,
+        original_filename: &str
+        ) -> Result<D>
     where
         D: DeserializeOwned,
     {
         let url = self.core.build_url(api_name, endpoint)?;
-        debug!("url -> {:?}", url);
 
         let mut req = self
             .client
             .request(Method::POST, url)
-            .header(CONTENT_TYPE, "application/json");
+            .header(ACCEPT, "application/json")
+            .header("X-Atlassian-Token", "no-check");
 
         req = self.core.apply_credentials_async(req);
 
@@ -203,10 +205,10 @@ impl Jira {
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
         let part = reqwest::multipart::Part::stream(body)
-            .file_name(file_name.to_string())
-            .mime_str("application-type");
+            .file_name(original_filename.to_string())
+            .mime_str("application/octet-stream")?;
 
-        let form = reqwest::multipart::Form::new().part("file", part?);
+        let form = reqwest::multipart::Form::new().part("file", part);
 
         let res = req
             .multipart(form)
@@ -246,11 +248,8 @@ impl Jira {
 
         let res = req.send().await?;
         let status = res.status();
-        let body = res.text().await?;
 
-        debug!("status {:?} body '{:?}'", status, body);
-
-        self.core.process_response(status, &body)
+        self.core.process_response(status, "")
     }
 }
 
