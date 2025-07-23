@@ -196,11 +196,6 @@ impl Jira {
 
         req = self.core.apply_credentials_async(req);
 
-         let file_name = file_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("myfile.txt");
-
         let file = File::open(file_path).await?;
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
