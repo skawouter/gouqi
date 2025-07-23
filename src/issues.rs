@@ -289,6 +289,13 @@ impl AsyncIssues {
         self.jira.post("api", "/issue", data).await
     }
 
+    pub async fn create_from_custom_issue<T: serde::Serialize>(
+        &self,
+        data: CreateCustomIssue<T>,
+    ) -> Result<CreateResponse> {
+        self.jira.post("api", "/issue", data).await
+    }
+
     /// Edit an issue
     ///
     /// See this [jira docs](https://docs.atlassian.com/software/jira/docs/api/REST/latest/#api/2/issue-editIssue)
