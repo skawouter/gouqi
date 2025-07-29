@@ -227,7 +227,6 @@ impl Jira {
         D: DeserializeOwned,
     {
         let url = self.core.build_url(api_name, endpoint)?;
-        debug!("url -> {:?}", url);
 
         let mut req = self
             .client
@@ -243,8 +242,11 @@ impl Jira {
 
         let res = req.send().await?;
         let status = res.status();
+        let body = res.text().await?;
 
-        self.core.process_response(status, "")
+ 
+
+        self.core.process_response(status, &body)
     }
 }
 
